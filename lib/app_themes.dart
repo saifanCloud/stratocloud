@@ -81,12 +81,7 @@ class AppThemes {
       hintStyle: TextStyle(color: lightTextSecondary.withOpacity(0.7)),
       labelStyle: const TextStyle(color: lightTextSecondary),
     ),
-    cardTheme: CardTheme(
-      color: lightSurface, // Menggunakan lightSurface untuk warna card
-      elevation:
-          0, // Elevation akan ditangani oleh widget Material di atas Card
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-    ),
+    
     listTileTheme: const ListTileThemeData(
       iconColor: lightTextSecondary,
       textColor: lightTextPrimary,
@@ -182,12 +177,7 @@ class AppThemes {
       hintStyle: TextStyle(color: darkTextSecondary.withOpacity(0.7)),
       labelStyle: const TextStyle(color: darkTextSecondary),
     ),
-    cardTheme: CardTheme(
-      color: darkSurface, // Menggunakan darkSurface untuk warna card
-      elevation:
-          0, // Elevation akan ditangani oleh widget Material di atas Card
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-    ),
+    
     listTileTheme: const ListTileThemeData(
       iconColor: darkTextSecondary,
       textColor: darkTextPrimary,

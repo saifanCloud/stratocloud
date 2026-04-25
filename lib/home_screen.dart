@@ -134,34 +134,52 @@ class _HomeScreenState extends State<HomeScreen> {
                   });
                 },
               ),
+              // -------- UNGGAH FOTO (DIPERBAIKI) --------
               ListTile(
                 leading: const Icon(Icons.photo_camera_outlined),
                 title: const Text('Unggah Foto'),
                 onTap: () async {
-                  Navigator.pop(context);
-                  final imageUrl = await StorageService().uploadImage();
-                  if (mounted) {
-                    if (imageUrl != null) {
-                      ScaffoldMessenger.of(context).showSnackBar(
+                  // Simpan messenger sebelum dialog ditutup
+                  final messenger = ScaffoldMessenger.of(context);
+                  Navigator.pop(context); // Tutup dialog
+
+                  // Upload gambar
+                  final path = await StorageService().uploadImage();
+
+                  if (!mounted) return;
+
+                  if (path != null) {
+                    try {
+                      // Simpan data foto ke database
+                      await DatabaseService().addPhoto(path);
+
+                      messenger.showSnackBar(
                         const SnackBar(
                           content: Text('Foto berhasil diunggah!'),
                           backgroundColor: Colors.green,
                         ),
                       );
+                      // Refresh galeri
                       _homeDashboardKey.currentState?.refreshGallery();
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Gagal mengunggah foto atau dibatalkan.',
-                          ),
+                    } catch (e) {
+                      messenger.showSnackBar(
+                        SnackBar(
+                          content: Text('Gagal menyimpan foto: $e'),
                           backgroundColor: Colors.red,
                         ),
                       );
                     }
+                  } else {
+                    messenger.showSnackBar(
+                      const SnackBar(
+                        content: Text('Gagal mengunggah foto atau dibatalkan.'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
                   }
                 },
               ),
+              // -----------------------------------------
               ListTile(
                 leading: const Icon(Icons.videocam_outlined),
                 title: const Text('Unggah Video'),
@@ -276,9 +294,9 @@ class _HomeScreenState extends State<HomeScreen> {
           builder: (context, isSelectionMode, child) {
             return isSelectionMode
                 ? IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: _dashboardController.clearSelection,
-                )
+                    icon: const Icon(Icons.close),
+                    onPressed: _dashboardController.clearSelection,
+                  )
                 : const SizedBox.shrink();
           },
         ),
@@ -352,10 +370,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     icon: const Icon(Icons.check_circle_outline),
                     onPressed:
                         () => ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Tekan lama untuk memulai seleksi.'),
-                          ),
-                        ),
+                              const SnackBar(
+                                content:
+                                    Text('Tekan lama untuk memulai seleksi.'),
+                              ),
+                            ),
                   ),
                 );
               }
@@ -407,11 +426,11 @@ class _HomeScreenState extends State<HomeScreen> {
       floatingActionButton:
           (_selectedIndex == 0 || _selectedIndex == 1 || _selectedIndex == 2)
               ? FloatingActionButton(
-                onPressed: _showCreateNewDialog,
-                backgroundColor: Theme.of(context).primaryColor,
-                foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                child: const Icon(Icons.add_rounded, size: 30),
-              )
+                  onPressed: _showCreateNewDialog,
+                  backgroundColor: Theme.of(context).primaryColor,
+                  foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                  child: const Icon(Icons.add_rounded, size: 30),
+                )
               : null,
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
@@ -598,6 +617,34 @@ class _HomeDashboardState extends State<_HomeDashboard> {
     return DateFormat('d MMMM yyyy', 'id_ID').format(date);
   }
 
+  // ========== METHOD BARU: WAKTU REAL-TIME ==========
+  Widget _buildTimeLabel(String? createdAt) {
+    if (createdAt == null) return const SizedBox.shrink();
+    final dateTime = DateTime.parse(createdAt).toLocal();
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
+
+    String timeText;
+    if (difference.inMinutes < 1) {
+      timeText = 'Baru saja';
+    } else if (difference.inMinutes < 60) {
+      timeText = '${difference.inMinutes} menit';
+    } else {
+      timeText = DateFormat('HH:mm', 'id_ID').format(dateTime);
+    }
+
+    return Text(
+      timeText,
+      style: const TextStyle(
+        color: Colors.white,
+        fontSize: 10,
+        fontWeight: FontWeight.w500,
+        shadows: [Shadow(blurRadius: 2.0, color: Colors.black)],
+      ),
+    );
+  }
+  // =================================================
+
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<List<Map<String, dynamic>>>(
@@ -649,14 +696,17 @@ class _HomeDashboardState extends State<_HomeDashboard> {
                     children: [
                       Text(
                         widget.quote,
-                        style: Theme.of(
-                          context,
-                        ).textTheme.headlineSmall?.copyWith(
-                          fontStyle: FontStyle.italic,
-                          color: Theme.of(
-                            context,
-                          ).textTheme.bodyLarge?.color?.withOpacity(0.7),
-                        ),
+                        style: Theme.of(context)
+                            .textTheme
+                            .headlineSmall
+                            ?.copyWith(
+                              fontStyle: FontStyle.italic,
+                              color: Theme.of(context)
+                                  .textTheme
+                                  .bodyLarge
+                                  ?.color
+                                  ?.withOpacity(0.7),
+                            ),
                       ),
                       const SizedBox(height: 20),
                       Material(
@@ -690,18 +740,15 @@ class _HomeDashboardState extends State<_HomeDashboard> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(
-                          16.0,
-                          16.0,
-                          16.0,
-                          8.0,
-                        ),
+                        padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 8.0),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
                               dateGroup,
-                              style: Theme.of(context).textTheme.titleLarge
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleLarge
                                   ?.copyWith(fontWeight: FontWeight.bold),
                             ),
                           ],
@@ -715,21 +762,18 @@ class _HomeDashboardState extends State<_HomeDashboard> {
                             physics: const NeverScrollableScrollPhysics(),
                             gridDelegate:
                                 const SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: 3,
-                                  crossAxisSpacing: 4.0,
-                                  mainAxisSpacing: 4.0,
-                                ),
+                              crossAxisCount: 3,
+                              crossAxisSpacing: 4.0,
+                              mainAxisSpacing: 4.0,
+                            ),
                             itemCount: itemsInGroup.length,
                             itemBuilder: (context, itemIndex) {
                               final item = itemsInGroup[itemIndex];
                               final String type =
-                                  item.containsKey('content')
-                                      ? 'note'
-                                      : 'photo';
+                                  item.containsKey('content') ? 'note' : 'photo';
                               final String itemId = item['id'].toString();
-                              final bool isSelected = selectedItems.contains(
-                                itemId,
-                              );
+                              final bool isSelected =
+                                  selectedItems.contains(itemId);
 
                               Widget contentWidget;
                               if (type == 'photo') {
@@ -737,47 +781,36 @@ class _HomeDashboardState extends State<_HomeDashboard> {
                                 contentWidget =
                                     (imageUrl != null && imageUrl.isNotEmpty)
                                         ? Image.network(
-                                          imageUrl,
-                                          fit: BoxFit.cover,
-                                          loadingBuilder: (
-                                            context,
-                                            child,
-                                            loadingProgress,
-                                          ) {
-                                            if (loadingProgress == null)
-                                              return child;
-                                            return const Center(
-                                              child: CircularProgressIndicator(
-                                                strokeWidth: 2.0,
-                                              ),
-                                            );
-                                          },
-                                          errorBuilder:
-                                              (context, error, stackTrace) =>
-                                                  const Center(
-                                                    child: Icon(
-                                                      Icons.broken_image,
-                                                      color: Colors.red,
-                                                    ),
-                                                  ),
-                                        )
+                                            imageUrl,
+                                            fit: BoxFit.cover,
+                                            loadingBuilder: (context, child, loadingProgress) {
+                                              if (loadingProgress == null) return child;
+                                              return const Center(
+                                                child: CircularProgressIndicator(strokeWidth: 2.0),
+                                              );
+                                            },
+                                            errorBuilder: (context, error, stackTrace) =>
+                                                const Center(
+                                                  child: Icon(Icons.broken_image, color: Colors.red),
+                                                ),
+                                          )
                                         : Container(
-                                          color: Colors.grey[300],
-                                          child: const Icon(Icons.image),
-                                        );
-                              } else { // type == 'note'
+                                            color: Colors.grey[300],
+                                            child: const Icon(Icons.image),
+                                          );
+                              } else {
+                                // type == 'note'
                                 contentWidget = Container(
                                   padding: const EdgeInsets.all(8.0),
                                   alignment: Alignment.topLeft,
                                   decoration: BoxDecoration(
-                                    color: Theme.of(
-                                      context,
-                                    ).primaryColor.withOpacity(0.1),
+                                    color: Theme.of(context)
+                                        .primaryColor
+                                        .withOpacity(0.1),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
+                                    crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Icon(
                                         Icons.sticky_note_2_outlined,
@@ -789,11 +822,10 @@ class _HomeDashboardState extends State<_HomeDashboard> {
                                         item['title'],
                                         maxLines: 2,
                                         overflow: TextOverflow.ellipsis,
-                                        style: Theme.of(
-                                          context,
-                                        ).textTheme.bodySmall?.copyWith(
-                                          fontWeight: FontWeight.bold,
-                                        ),
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(fontWeight: FontWeight.bold),
                                       ),
                                     ],
                                   ),
@@ -805,38 +837,27 @@ class _HomeDashboardState extends State<_HomeDashboard> {
                                 borderRadius: BorderRadius.circular(8),
                                 clipBehavior: Clip.antiAlias,
                                 child: GestureDetector(
-                                  // ================================================================
-                                  // === INI ADALAH BAGIAN UTAMA YANG DIUBAH UNTUK NAVIGASI TAP ===
-                                  // ================================================================
                                   onTap: () {
-                                    // Jika mode seleksi aktif, tap berfungsi untuk memilih/batal memilih.
-                                    if (widget
-                                        .controller
-                                        .isSelectionMode
-                                        .value) {
+                                    if (widget.controller.isSelectionMode.value) {
                                       widget.controller.toggleSelection(itemId);
                                     } else {
-                                      // Jika tidak dalam mode seleksi, tap berfungsi untuk melihat detail.
                                       if (type == 'note') {
-                                        // Navigasi ke halaman detail catatan
                                         context.pushNamed(
                                           'note-detail',
-                                          extra: item, // Kirim seluruh data catatan
+                                          extra: item,
                                         );
                                       } else if (type == 'photo') {
                                         final imageUrl = item['file_url'];
                                         if (imageUrl != null) {
-                                          // Navigasi ke halaman detail foto
                                           context.pushNamed(
                                             'photo-view',
-                                            extra: imageUrl, // Kirim hanya URL gambar
+                                            extra: imageUrl,
                                           );
                                         }
                                       }
                                     }
                                   },
                                   onLongPress: () {
-                                    // Tekan lama selalu untuk memulai mode seleksi
                                     widget.controller.toggleSelection(itemId);
                                   },
                                   child: Stack(
@@ -846,17 +867,12 @@ class _HomeDashboardState extends State<_HomeDashboard> {
                                       if (isSelected)
                                         Container(
                                           decoration: BoxDecoration(
-                                            color: Theme.of(
-                                              context,
-                                            ).primaryColor.withOpacity(0.4),
-                                            borderRadius: BorderRadius.circular(
-                                              8,
-                                            ),
+                                            color: Theme.of(context)
+                                                .primaryColor
+                                                .withOpacity(0.4),
+                                            borderRadius: BorderRadius.circular(8),
                                             border: Border.all(
-                                              color:
-                                                  Theme.of(
-                                                    context,
-                                                  ).primaryColor,
+                                              color: Theme.of(context).primaryColor,
                                               width: 3,
                                             ),
                                           ),
@@ -872,10 +888,7 @@ class _HomeDashboardState extends State<_HomeDashboard> {
                                             ),
                                           ),
                                         ),
-                                      if (!widget
-                                          .controller
-                                          .isSelectionMode
-                                          .value)
+                                      if (!widget.controller.isSelectionMode.value)
                                         Positioned(
                                           top: 4,
                                           right: 4,
@@ -883,93 +896,66 @@ class _HomeDashboardState extends State<_HomeDashboard> {
                                             icon: const Icon(
                                               Icons.more_vert,
                                               color: Colors.white,
-                                              shadows: [
-                                                Shadow(blurRadius: 2.0),
-                                              ],
+                                              shadows: [Shadow(blurRadius: 2.0)],
                                             ),
                                             onSelected: (value) async {
                                               if (value == 'delete') {
-                                                final confirm = await showDialog<
-                                                  bool
-                                                >(
+                                                final confirm =
+                                                    await showDialog<bool>(
                                                   context: context,
-                                                  builder:
-                                                      (context) => AlertDialog(
-                                                        title: const Text(
-                                                          'Konfirmasi',
-                                                        ),
-                                                        content: const Text(
-                                                          'Apakah Anda yakin ingin menghapus item ini?',
-                                                        ),
-                                                        actions: [
-                                                          TextButton(
-                                                            onPressed:
-                                                                () =>
-                                                                    Navigator.of(
-                                                                      context,
-                                                                    ).pop(
-                                                                      false,
-                                                                    ),
-                                                            child: const Text(
-                                                              'Batal',
-                                                            ),
-                                                          ),
-                                                          TextButton(
-                                                            onPressed:
-                                                                () =>
-                                                                    Navigator.of(
-                                                                      context,
-                                                                    ).pop(true),
-                                                            child: const Text(
-                                                              'Hapus',
-                                                              style: TextStyle(
-                                                                color:
-                                                                    Colors.red,
-                                                              ),
-                                                            ),
-                                                          ),
-                                                        ],
+                                                  builder: (context) => AlertDialog(
+                                                    title: const Text('Konfirmasi'),
+                                                    content: const Text(
+                                                        'Apakah Anda yakin ingin menghapus item ini?'),
+                                                    actions: [
+                                                      TextButton(
+                                                        onPressed: () =>
+                                                            Navigator.of(context).pop(false),
+                                                        child: const Text('Batal'),
                                                       ),
+                                                      TextButton(
+                                                        onPressed: () =>
+                                                            Navigator.of(context).pop(true),
+                                                        child: const Text(
+                                                          'Hapus',
+                                                          style: TextStyle(color: Colors.red),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
                                                 );
                                                 if (confirm == true) {
                                                   if (type == 'note') {
-                                                    await _dbService.deleteNote(
-                                                      item['id'],
-                                                    );
+                                                    await _dbService.deleteNote(item['id']);
                                                   } else if (type == 'photo') {
-                                                    await _dbService
-                                                        .deletePhoto(
-                                                          item['id'],
-                                                          item['path'],
-                                                        );
+                                                    await _dbService.deletePhoto(
+                                                        item['id'], item['path']);
                                                   }
                                                   refreshGallery();
                                                 }
                                               }
                                             },
-                                            itemBuilder:
-                                                (context) => [
-                                                  const PopupMenuItem<String>(
-                                                    value: 'delete',
-                                                    child: Row(
-                                                      children: [
-                                                        Icon(
-                                                          Icons.delete_outline,
-                                                          color: Colors.red,
-                                                        ),
-                                                        SizedBox(width: 8),
-                                                        Text(
-                                                          'Hapus',
-                                                          style: TextStyle(
-                                                            color: Colors.red,
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                ],
+                                            itemBuilder: (context) => [
+                                              const PopupMenuItem<String>(
+                                                value: 'delete',
+                                                child: Row(
+                                                  children: [
+                                                    Icon(Icons.delete_outline, color: Colors.red),
+                                                    SizedBox(width: 8),
+                                                    Text('Hapus', style: TextStyle(color: Colors.red)),
+                                                  ],
+                                                ),
+                                              ),
+                                            ],
                                           ),
                                         ),
+                                      // ========== TAMBAHKAN WAKTU DI SINI ==========
+                                      Positioned(
+                                        bottom: 2,
+                                        right: 4,
+                                        child: _buildTimeLabel(item['created_at']),
+                                      ),
+                                      // =============================================
                                     ],
                                   ),
                                 ),

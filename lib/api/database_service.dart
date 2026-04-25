@@ -30,7 +30,6 @@ class DatabaseService {
     }
   }
 
-
   Future<List<Map<String, dynamic>>> getNotes() async {
     try {
       final userId = _supabase.auth.currentUser!.id;
@@ -119,7 +118,7 @@ class DatabaseService {
       print('Error deleting photo: $e');
     }
   }
-  
+
   // --- ▼▼▼ PERBAIKAN PADA FUNGSI INI ▼▼▼ ---
   Future<void> updateProfile({
     required String username,
@@ -144,6 +143,21 @@ class DatabaseService {
     } catch (e) {
       print('Generic error updating profile: $e');
       throw Exception('Terjadi kesalahan tidak dikenal saat memperbarui profil.');
+    }
+  }
+
+  // ========== METHOD BARU: UNTUK MENYIMPAN FOTO KE DATABASE ==========
+  Future<void> addPhoto(String path) async {
+    try {
+      final userId = _supabase.auth.currentUser!.id;
+      await _supabase.from('photos').insert({
+        'user_id': userId,
+        'path': path,
+        'created_at': DateTime.now().toIso8601String(),
+      });
+    } catch (e) {
+      print('Error adding photo: $e');
+      rethrow; // Melempar error agar bisa ditangkap di UI
     }
   }
 }
