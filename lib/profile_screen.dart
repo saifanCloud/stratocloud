@@ -35,7 +35,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void initState() {
     super.initState();
     // Data dimuat pertama kali saat halaman dibuka
-    _profileFuture = _dbService.getProfile();
+  _profileFuture = _dbService.getOrCreateProfile();
   }
 
   // Fungsi untuk memuat ulang data dari server
@@ -81,20 +81,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 padding: const EdgeInsets.all(20.0),
                 child: Column(
                   children: [
-                    CircleAvatar(
-                      radius: 50,
-                      backgroundColor: Colors.grey.shade200,
-                      backgroundImage:
-                          avatarUrl != null ? NetworkImage(avatarUrl) : null,
-                      child:
-                          avatarUrl == null
-                              ? const Icon(
-                                  Icons.person,
-                                  size: 50,
-                                  color: Colors.grey,
-                                )
-                              : null,
-                    ),
+                  // Di lib/profile_screen.dart, bagian CircleAvatar:
+
+CircleAvatar(
+  radius: 50,
+  backgroundColor: Colors.grey.shade200,
+  // ✅ Hanya pakai NetworkImage jika avatar_url valid & bukan SVG
+  backgroundImage: (avatarUrl != null && 
+                    !avatarUrl.endsWith('.svg') && 
+                    avatarUrl.startsWith('http'))
+      ? NetworkImage(avatarUrl)
+      : null,
+  child: (avatarUrl == null || avatarUrl.endsWith('.svg'))
+      ? const Icon(Icons.person, size: 50, color: Colors.grey)
+      : null,
+),
                     const SizedBox(height: 16),
                     Container(
                       padding: const EdgeInsets.symmetric(

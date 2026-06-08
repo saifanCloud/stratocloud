@@ -7,6 +7,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 class StorageService {
   final _supabase = Supabase.instance.client;
+  
+  // ✅ Ganti jadi 'photos' sesuai bucket di Supabase
+  static const String bucketName = 'photos'; 
 
   Future<String?> uploadImage() async {
     final picker = ImagePicker();
@@ -15,19 +18,16 @@ class StorageService {
       imageQuality: 80,
     );
 
-    if (imageFile == null) {
-      return null;
-    }
+    if (imageFile == null) return null;
 
-    final fileName = '${DateTime.now().toIso8601String()}-${imageFile.name}';
-    final filePath = '${_supabase.auth.currentUser!.id}/$fileName';
+    final fileName = '${DateTime.now().millisecondsSinceEpoch}-${imageFile.name}';
+    final filePath = '${_supabase.auth.currentUser?.id ?? 'guest'}/$fileName';
 
     try {
-      // Hanya fokus untuk upload file, tidak ada lagi insert ke database dari sini.
       if (kIsWeb) {
         final imageBytes = await imageFile.readAsBytes();
         await _supabase.storage
-            .from('user-photos')
+            .from(bucketName) // ✅ Pakai variable bucketName
             .uploadBinary(
               filePath,
               imageBytes,
@@ -35,14 +35,19 @@ class StorageService {
             );
       } else {
         final file = File(imageFile.path);
-        await _supabase.storage.from('user-photos').upload(filePath, file);
+        await _supabase.storage
+            .from(bucketName) // ✅ Pakai variable bucketName
+            .upload(filePath, file);
       }
-
-      // Kembalikan path file sebagai tanda berhasil
       return filePath;
     } catch (e) {
-      print('Error uploading image: $e');
+      print('❌ Error uploading image: $e');
       return null;
     }
+  }
+
+  // Helper: Ambil URL publik
+  String getPublicUrl(String filePath) {
+    return _supabase.storage.from(bucketName).getPublicUrl(filePath);
   }
 }
